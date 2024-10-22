@@ -1,0 +1,136 @@
+CREATE DATABASE employees_db;
+USE employees_db;
+
+CREATE TABLE dim_employees (
+    employee_id INT PRIMARY KEY,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    position VARCHAR(50),
+    department_id INT,
+    hire_date DATE,
+    salary DECIMAL(10, 2)
+);
+
+CREATE TABLE dim_departments (
+    department_id INT PRIMARY KEY,
+    department_name VARCHAR(100),
+    location VARCHAR(100)
+);
+
+CREATE TABLE dim_time (
+    time_id INT PRIMARY KEY,
+    year INT,
+    quarter INT,
+    month INT,
+    day INT
+);
+
+CREATE TABLE fact_attendance (
+    attendance_id INT PRIMARY KEY,
+    employee_id INT,
+    time_id INT,
+    status VARCHAR(20),  -- e.g., Present, Absent
+    hours_worked DECIMAL(5, 2),
+    FOREIGN KEY (employee_id) REFERENCES dim_employees(employee_id),
+    FOREIGN KEY (time_id) REFERENCES dim_time(time_id)
+);
+
+-- Insert into dim_departments
+INSERT INTO dim_departments (department_id, department_name, location)
+VALUES
+(1, 'Human Resources', 'New York'),
+(2, 'Engineering', 'San Francisco'),
+(3, 'Sales', 'Chicago');
+
+-- Insert into dim_employees
+INSERT INTO dim_employees (employee_id, first_name, last_name, position, department_id, hire_date, salary)
+VALUES
+(1, 'John', 'Doe', 'Manager', 1, '2020-01-15', 80000),
+(2, 'Jane', 'Smith', 'Developer', 2, '2019-03-20', 90000),
+(3, 'Mike', 'Johnson', 'Sales Rep', 3, '2021-06-25', 60000);
+
+-- Insert into dim_time
+INSERT INTO dim_time (time_id, year, quarter, month, day)
+VALUES
+(1, 2023, 1, 1, 1),
+(2, 2023, 1, 1, 2),
+(3, 2023, 1, 1, 3);
+----------------------------------------------------------------------------------------------
+ROLL-UP
+SELECT 
+    d.department_name,
+    COUNT(f.attendance_id) AS total_attendance,
+    SUM(f.hours_worked) AS total_hours
+FROM 
+    fact_attendance f
+JOIN 
+    dim_employees e ON f.employee_id = e.employee_id
+JOIN 
+    dim_departments d ON e.department_id = d.department_id
+GROUP BY 
+    d.department_name;
+
+DRILL-DOWN
+SELECT 
+    e.first_name,
+    e.last_name,
+    f.status,
+    f.hours_worked
+FROM 
+    fact_attendance f
+JOIN 
+    dim_employees e ON f.employee_id = e.employee_id
+WHERE 
+    e.department_id = 1;  -- Assuming department_id 1 is "Human Resources"
+
+SLICE    
+SELECT 
+    e.first_name,
+    e.last_name,
+    f.status,
+    f.hours_worked
+FROM 
+    fact_attendance f
+JOIN 
+    dim_employees e ON f.employee_id = e.employee_id
+JOIN 
+    dim_time t ON f.time_id = t.time_id
+WHERE 
+    t.year = 2023 AND t.month = 1;  -- January 2023
+    
+DICE 
+SELECT 
+    e.first_name,
+    e.last_name,
+    f.status,
+    f.hours_worked
+FROM 
+    fact_attendance f
+JOIN 
+    dim_employees e ON f.employee_id = e.employee_id
+JOIN 
+    dim_time t ON f.time_id = t.time_id
+WHERE 
+    e.department_id IN (1, 2)  -- Human Resources and Engineering
+    AND t.year = 2023 AND t.month = 1;  -- January 2023
+
+PIVOT
+SELECT 
+    e.first_name,
+    e.last_name,
+    SUM(CASE WHEN f.status = 'Present' THEN 1 ELSE 0 END) AS Present,
+    SUM(CASE WHEN f.status = 'Absent' THEN 1 ELSE 0 END) AS Absent
+FROM 
+    fact_attendance f
+JOIN 
+    dim_employees e ON f.employee_id = e.employee_id
+GROUP BY 
+    e.first_name, e.last_name;
+
+
+
+
+
+
+
+
